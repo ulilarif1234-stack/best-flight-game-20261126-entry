@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SKY COURIER: Meridian Run</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1420;
+    font-family: "Segoe UI", system-ui, sans-serif; color: #e8ecf0; }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .hidden { display: none !important; }
+  .panel { background: rgba(12, 18, 28, 0.72); border: 1px solid rgba(255, 210, 122, 0.35);
+    border-radius: 8px; padding: 8px 12px; backdrop-filter: blur(2px); }
+  #hud { position: fixed; inset: 0; pointer-events: none; font-family: ui-monospace, monospace; }
+  #hud-topleft { position: absolute; top: 12px; left: 12px; display: flex; gap: 14px; }
+  #hud-topleft .big { font-size: 22px; font-weight: bold; color: #ffd27a; }
+  #hud-topleft .lbl { font-size: 10px; letter-spacing: 2px; color: #9aa7b5; }
+  #hud-topright { position: absolute; top: 12px; right: 12px; text-align: right; min-width: 240px; }
+  #hud-sortie { font-size: 11px; letter-spacing: 2px; color: #9aa7b5; }
+  #hud-objective { font-size: 17px; font-weight: bold; color: #ffd27a; margin-top: 2px; }
+  #hud-bottomleft { position: absolute; left: 12px; bottom: 12px; width: 230px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 12px; }
+  .bar-track { flex: 1; height: 10px; background: #26303f; border-radius: 5px; overflow: hidden; }
+  .bar-fill { height: 100%; background: #57b25e; border-radius: 5px; transition: width 0.2s; }
+  .bar-fill.low { background: #e8a13c; }
+  .bar-fill.bad { background: #e0524a; }
+  #bar-throttle { background: #4a90d9; }
+  #hud-gear { margin-top: 6px; font-size: 11px; letter-spacing: 2px; color: #9aa7b5; }
+  #cockpit { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+    padding: 6px; }
+  #instruments { display: block; width: 260px; height: 120px; }
+  #banner { position: absolute; top: 22%; left: 50%; transform: translateX(-50%);
+    font-size: 26px; font-weight: bold; color: #ffe9b0; text-align: center;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
+  #warn { position: absolute; top: 30%; left: 50%; transform: translateX(-50%);
+    font-size: 18px; font-weight: bold; color: #ff6b5e; letter-spacing: 2px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.9); animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0.35; } }
+  #mute-btn { position: absolute; top: 12px; right: 12px; margin-top: 86px;
+    pointer-events: auto; background: rgba(12,18,28,0.72); color: #e8ecf0;
+    border: 1px solid rgba(255,210,122,0.35); border-radius: 6px; padding: 5px 10px;
+    font-family: ui-monospace, monospace; font-size: 11px; cursor: pointer; }
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(rgba(10,16,26,0.55), rgba(10,16,26,0.75)); z-index: 10; }
+  .card { max-width: 620px; width: 92%; text-align: center; padding: 28px 30px;
+    background: rgba(14, 20, 32, 0.88); border: 1px solid rgba(255,210,122,0.4);
+    border-radius: 14px; }
+  .card h1 { margin: 0; font-size: 44px; letter-spacing: 4px; color: #ffd27a; }
+  .card h2 { margin: 4px 0 14px; font-size: 15px; letter-spacing: 6px; color: #9fc3e8; font-weight: normal; }
+  .card p { font-size: 15px; line-height: 1.55; color: #d5dce4; }
+  .sorties { display: flex; gap: 10px; margin: 18px 0; }
+  .sortie-btn { flex: 1; text-align: left; padding: 12px; cursor: pointer; color: #e8ecf0;
+    background: rgba(255,210,122,0.08); border: 1px solid rgba(255,210,122,0.45);
+    border-radius: 10px; font-family: inherit; }
+  .sortie-btn:hover { background: rgba(255,210,122,0.2); }
+  .sortie-btn b { display: block; font-size: 14px; color: #ffd27a; margin-bottom: 5px; }
+  .sortie-btn span { font-size: 12px; line-height: 1.4; color: #c8ccd2; }
+  .controls { font-size: 13px; color: #9aa7b5; line-height: 1.8; margin: 10px 0 4px; }
+  .controls b { color: #e8ecf0; }
+  .btn { display: inline-block; margin: 8px 5px 0; padding: 11px 22px; font-size: 15px;
+    cursor: pointer; color: #141a24; background: #ffd27a; border: none; border-radius: 8px;
+    font-weight: bold; font-family: inherit; }
+  .btn:hover { background: #ffe1a1; }
+  .btn.ghost { background: transparent; color: #ffd27a; border: 1px solid #ffd27a; }
+  #end-title { font-size: 36px; letter-spacing: 3px; color: #ffd27a; margin: 0 0 8px; }
+  #end-stats { margin-top: 14px; font-size: 13px; color: #9aa7b5; font-family: ui-monospace, monospace; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="view" aria-label="SKY COURIER: Meridian Run — a 3D flight game over Meridian Island"></canvas>
+<p id="status" role="status" aria-live="polite"></p>
+
+<div id="hud" class="hidden">
+  <div id="hud-topleft">
+    <div class="panel"><div class="lbl">ALTITUDE</div><div class="big" id="hud-alt">0 m</div></div>
+    <div class="panel"><div class="lbl">SPEED</div><div class="big" id="hud-spd">0 km/h</div></div>
+    <div class="panel"><div class="lbl">HEADING</div><div class="big" id="hud-hdg">090°</div></div>
+    <div class="panel"><div class="lbl">VERT SPEED</div><div class="big" id="hud-vs">+0.0 m/s</div></div>
+  </div>
+  <div id="hud-topright" class="panel">
+    <div id="hud-sortie">Sortie 1 — Ring Run</div>
+    <div id="hud-objective">Rings 0 / 8</div>
+  </div>
+  <div id="hud-bottomleft" class="panel">
+    <div class="bar-row"><span id="fuel-text">FUEL 100%</span><div class="bar-track"><div class="bar-fill" id="bar-fuel" style="width:100%"></div></div></div>
+    <div class="bar-row"><span id="damage-text">DMG 0%</span><div class="bar-track"><div class="bar-fill" id="bar-damage" style="width:0%"></div></div></div>
+    <div class="bar-row"><span id="throttle-text">THR 0%</span><div class="bar-track"><div class="bar-fill" id="bar-throttle" style="width:0%"></div></div></div>
+    <div id="hud-gear">ON GROUND</div>
+  </div>
+  <div id="cockpit" class="panel"><canvas id="instruments" width="260" height="120"></canvas></div>
+  <div id="banner" class="hidden"></div>
+  <div id="banner-sub" class="hidden"></div>
+  <div id="warn" class="hidden"></div>
+  <button id="mute-btn">SOUND: ON</button>
+</div>
+
+<div id="title-screen" class="overlay">
+  <div class="card">
+    <h1>SKY COURIER</h1>
+    <h2>MERIDIAN RUN</h2>
+    <p>One small plane, one island, three sorties. Thread the rings, haul the
+    freight to North Point, and bring her home through a crosswind — on one
+    tank of fuel and one careful airframe.</p>
+    <div class="sorties">
+      <button class="sortie-btn" data-sortie="0"><b>1 · RING RUN</b><span>Thread 8 gold rings over the island.</span></button>
+      <button class="sortie-btn" data-sortie="1"><b>2 · CARGO RUN</b><span>Take off and land the freight on North Point.</span></button>
+      <button class="sortie-btn" data-sortie="2"><b>3 · STORM LANDING</b><span>Land in a crosswind before the clock runs out.</span></button>
+    </div>
+    <div class="controls">
+      <b>W / S</b> throttle &nbsp;·&nbsp; <b>← →</b> bank &amp; turn &nbsp;·&nbsp; <b>↑ ↓</b> pitch<br>
+      <b>Space</b> airbrake &nbsp;·&nbsp; <b>R</b> restart sortie &nbsp;·&nbsp; <b>M</b> mute &nbsp;·&nbsp; mouse: menus
+    </div>
+  </div>
+</div>
+
+<div id="end-screen" class="overlay hidden">
+  <div class="card">
+    <h1 id="end-title">CARGO DELIVERED</h1>
+    <p id="end-text"></p>
+    <div id="end-stats"></div>
+    <button class="btn" id="btn-again">Fly again (R)</button>
+    <button class="btn ghost" id="btn-next">Next sortie</button>
+    <button class="btn ghost" id="btn-title">Change sortie</button>
+  </div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
